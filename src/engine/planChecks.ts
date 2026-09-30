@@ -6,7 +6,7 @@ import { OVERLOAD_ABOVE, PROGRAMS, RESIDENCY, ULW_PREREQS } from '../data/rules/
 import { DUAL_DEGREES } from '../data/rules/dualDegrees';
 import { isLawCourse } from '../data/rules/courseCategories';
 import { LATEST_TERM, SECTIONS_BY_TERM, findSection, flagFor, getCourse, matchesAny, normCode, type Section } from './catalog';
-import { earnsCredit } from './gpa';
+import { earnsCredit, sumCredits } from './gpa';
 import { jdCreditsIn } from './jdCredit';
 import { evalExpr, exprToString, parsePrereq } from './prereq';
 import { isRegularTerm, termInfo, termName } from './terms';
@@ -83,15 +83,17 @@ export function checkPlan(es: Enrollment[], profile: Profile): Issue[] {
   for (const term of terms) {
     const inTerm = es.filter((e) => e.term === term);
     const planned = inTerm.filter((e) => e.status !== 'completed');
-    // Loads are measured in credits toward the JD (e.g. MBA courses the law school doesn't accept are excluded).
+    // Full-time residency counts every enrolled credit (graduate courses included); the overload
+    // threshold counts only credits toward the JD.
+    const enrolled = sumCredits(inTerm.filter((e) => !e.transferredIn));
     const jdCredits = jdCreditsIn(inTerm, profile);
 
     // Residency: a full-time semester needs 12+ credits (not a limit on enrollment).
-    if (planned.length && isRegularTerm(term) && !profile.dual && jdCredits < RESIDENCY.fullTimeRegistered) {
+    if (planned.length && isRegularTerm(term) && !profile.dual && enrolled < RESIDENCY.fullTimeRegistered) {
       issues.push({
         severity: 'warning',
         term,
-        message: `${termName(term)}: ${jdCredits} credits is below the ${RESIDENCY.fullTimeRegistered} needed for a full-time residency semester.`,
+        message: `${termName(term)}: ${enrolled} credits is below the ${RESIDENCY.fullTimeRegistered} needed for a full-time residency semester.`,
       });
     }
     // No hard cap: more than 17 JD credits is allowed but incurs overload fees.

@@ -47,7 +47,18 @@ export interface Profile {
 /** Layer 0 = completed, 1 = + in progress, 2 = + planned. */
 export type Layer = 0 | 1 | 2;
 
-export type Status = 'met' | 'in-progress' | 'planned' | 'unmet' | 'manual-met' | 'manual' | 'info';
+export type Status =
+  | 'met'
+  | 'in-progress'
+  | 'planned'
+  | 'unmet'
+  | 'manual-met'
+  | 'manual'
+  | 'info'
+  /** Credit caps report usage, not pass/fail. */
+  | 'cap-under'
+  | 'cap-hit'
+  | 'cap-exceeded';
 
 export interface Progress {
   need: number;

@@ -133,7 +133,11 @@ describe('residential JD', () => {
     expect(t.residency).toBe(17);
     expect(t.excess.residency).toBe(2);
     expect(t.countable).toBe(t.total - 2);
-    expect(find(evaluateProgram(es, profile()), 'cap-residency')!.status).toBe('unmet');
+    const r = evaluateProgram(es, profile());
+    expect(find(r, 'cap-residency')!.status).toBe('cap-exceeded');
+    // Caps limit what counts; they never make the program itself "not met".
+    expect(find(r, 'caps')!.status).toBe('cap-exceeded');
+    expect(find(r, 'credits')!.children!.some((c) => c.id.startsWith('cap-'))).toBe(false);
   });
 
   it('counts a semester under 12 credits as not full-time', () => {

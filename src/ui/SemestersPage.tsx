@@ -133,7 +133,7 @@ function TermCard({ term, enrollments, profile, issues }: { term: string; enroll
         <div className="row small">
           <strong title="Credits toward the JD">{jdCredits} cr</strong>
           {credits !== jdCredits && <span className="muted" title="Includes courses that don't count toward the JD">({credits} total)</span>}
-          {isRegularTerm(term) && !profile.dual && jdCredits > 0 && jdCredits < 12 && <span className="badge warn">Part-time</span>}
+          {isRegularTerm(term) && !profile.dual && credits > 0 && credits < 12 && <span className="badge warn" title="Fewer than 12 enrolled credits: not a full-time residency semester">Part-time</span>}
           {jdCredits > OVERLOAD_ABOVE && (
             <span className="badge neutral" title={`More than ${OVERLOAD_ABOVE} JD credits: allowed, with overload fees`}>
               Overload

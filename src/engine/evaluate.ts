@@ -21,11 +21,14 @@ export function statusFor(have: Triple, need: number): Status {
   return 'unmet';
 }
 
-/** Worst status among children, for group headers. */
+/** Worst status among children, for group headers. Credit caps and info rows don't affect it. */
 export function rollup(children: ReqResult[]): Status {
   const order: Status[] = ['unmet', 'manual', 'planned', 'in-progress', 'manual-met', 'met', 'info'];
   let worst: Status = 'info';
-  for (const c of children) if (order.indexOf(c.status) < order.indexOf(worst)) worst = c.status;
+  for (const c of children) {
+    if (!order.includes(c.status)) continue;
+    if (order.indexOf(c.status) < order.indexOf(worst)) worst = c.status;
+  }
   return worst === 'manual-met' ? 'met' : worst;
 }
 
@@ -41,6 +44,8 @@ export interface CreditTally {
   independentStudy: number;
   nonLaw: number;
   nonRegular: number;
+  /** Credits earned with D+, D or D-. */
+  belowCMinus: number;
   excess: Record<keyof typeof CAPS, number>;
   /** Non-law courses that never count toward the JD (e.g. MBA courses not on the accepted list). */
   notAccepted: Enrollment[];
@@ -73,8 +78,11 @@ export function tallyCredits(es: Enrollment[], profile: Profile): CreditTally {
   const nonRegC = resInClin + isC + nlC + coCurricular;
   const nonRegular = nonRegC;
 
+  // "85 credits, not more than 9 of which are below C-": extra D-range credits simply don't count.
+  const belowCMinus = belowCMinusCredits([...law, ...nonLawEs]);
+
   const excess = {
-    belowCMinus: 0,
+    belowCMinus: Math.max(0, belowCMinus - CAPS.belowCMinus),
     residency: residency - resC,
     clinical: clinicOnly + resC - clinC,
     independentStudy: independentStudy - isC,
@@ -82,8 +90,8 @@ export function tallyCredits(es: Enrollment[], profile: Profile): CreditTally {
     nonRegular: Math.max(0, nonRegC - CAPS.nonRegular),
   };
   const total = sumCredits(law) + nonLaw;
-  const countable = total - excess.residency - excess.clinical - excess.independentStudy - excess.nonLaw - excess.nonRegular;
-  return { total, countable, clinical, residency, independentStudy, nonLaw, nonRegular, excess, notAccepted };
+  const countable = total - Object.values(excess).reduce((s, x) => s + x, 0);
+  return { total, countable, clinical, residency, independentStudy, nonLaw, nonRegular, belowCMinus, excess, notAccepted };
 }
 
 // ---------------- requirement builders ----------------
@@ -188,17 +196,38 @@ function ulwElRequirements(es: Enrollment[], profile: Profile): ReqResult[] {
   ];
 }
 
+/**
+ * Credit caps aren't graduation requirements: they limit how many credits of a kind count toward
+ * the 85. So they report usage (under / hit / exceeded) rather than met / not met.
+ */
 function capResult(id: string, label: string, have: Triple, cap: number, detail: string): ReqResult {
   const over = LAYERS.find((l) => have[l] > cap);
+  const at = LAYERS.find((l) => have[l] >= cap);
+  const where = (l: Layer) => (l === 2 ? ' with your plan' : l === 1 ? ' including in-progress courses' : '');
+  const status: Status = over !== undefined ? 'cap-exceeded' : at !== undefined ? 'cap-hit' : 'cap-under';
+  const text =
+    over !== undefined
+      ? `${fmt(have[2])} credits${where(over)} — ${fmt(have[2] - cap)} over the cap won't count toward the 85.`
+      : at !== undefined
+        ? `At the cap${where(at)}: any more credits of this kind won't count toward the 85.`
+        : `${fmt(have[2])} of ${cap} credits used in your record and plan.`;
   return {
     id,
     label: `${label} (max ${cap} credits)`,
-    status: over === undefined ? 'met' : 'unmet',
-    detail:
-      over === undefined
-        ? `${fmt(have[2])} credits in your record and plan. ${detail}`
-        : `${fmt(have[over])} credits${over === 2 ? ' with your plan' : over === 1 ? ' including in-progress courses' : ''} — ${fmt(have[over] - cap)} over the cap won't count toward the 85. ${detail}`,
+    status,
+    progress: { need: cap, have, unit: 'credits' },
+    detail: detail ? `${text} ${detail}` : text,
   };
+}
+
+const CAP_STATUSES: Status[] = ['cap-under', 'cap-hit', 'cap-exceeded'];
+export const isCapStatus = (s: Status) => CAP_STATUSES.includes(s);
+
+/** Most notable cap status among children, for the caps group header. */
+function capRollup(children: ReqResult[]): Status {
+  if (children.some((c) => c.status === 'cap-exceeded')) return 'cap-exceeded';
+  if (children.some((c) => c.status === 'cap-hit')) return 'cap-hit';
+  return 'cap-under';
 }
 
 function manualItem(key: string, label: string, profile: Profile, detail?: string): ReqResult {
@@ -217,7 +246,6 @@ export function evaluateProgram(es: Enrollment[], profile: Profile): ReqResult {
   const jdEs = jdEnrollments(es, profile);
   const g = gpa(jdEs);
   const gpaStatus: Status = g.gpa === null ? 'info' : g.gpa >= program.minGpa - 1e-9 ? 'met' : 'unmet';
-  const below = belowCMinusCredits(jdEs);
   const notAccepted = final.notAccepted;
 
   const creditChildren: ReqResult[] = [
@@ -242,12 +270,10 @@ export function evaluateProgram(es: Enrollment[], profile: Profile): ReqResult {
       status: gpaStatus,
       detail: g.gpa === null ? 'No graded courses yet.' : `Current JD GPA ${formatGpa(g.gpa)} over ${fmt(g.hours)} graded credits.`,
     },
-    {
-      id: 'below-c-minus',
-      label: `No more than ${CAPS.belowCMinus} credits below C-`,
-      status: below > CAPS.belowCMinus ? 'unmet' : 'met',
-      detail: `${fmt(below)} credits of D+, D or D-.`,
-    },
+  ];
+
+  const capChildren: ReqResult[] = [
+    capResult('cap-below-c-minus', 'Credits below C- (D+, D, D-)', tallies.map((t) => t.belowCMinus) as Triple, CAPS.belowCMinus, ''),
     capResult('cap-clinical', 'Clinical work incl. residencies', tallies.map((t) => t.clinical) as Triple, CAPS.clinical, ''),
     capResult('cap-residency', 'Legal residencies', tallies.map((t) => t.residency) as Triple, CAPS.residency, ''),
     capResult('cap-is', 'Independent study', tallies.map((t) => t.independentStudy) as Triple, CAPS.independentStudy, ''),
@@ -290,7 +316,14 @@ export function evaluateProgram(es: Enrollment[], profile: Profile): ReqResult {
   ];
 
   const children: ReqResult[] = [
-    { id: 'credits', label: 'Credits, GPA and caps', status: rollup(creditChildren), children: creditChildren },
+    { id: 'credits', label: 'Credits and GPA', status: rollup(creditChildren), children: creditChildren },
+    {
+      id: 'caps',
+      label: 'Credit limits (what counts toward the 85)',
+      status: capRollup(capChildren),
+      detail: "These aren't graduation requirements. Credits beyond a limit are still earned but don't count toward the 85.",
+      children: capChildren,
+    },
     ...groups,
     { id: 'writing-el', label: 'Upper-Level Writing & Experiential Learning', status: rollup(writing), children: writing },
     residency,

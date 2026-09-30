@@ -1,6 +1,5 @@
 import { RESIDENCY } from '../data/rules/programs';
 import { earnsCredit, layerOf, sumCredits } from './gpa';
-import { jdEnrollments } from './jdCredit';
 import { isRegularTerm, nextTerm, termEndMonth, termName, termStartMonth } from './terms';
 import type { Enrollment, Layer, Profile, ReqResult, Status } from './types';
 
@@ -14,14 +13,15 @@ export interface TermLoad {
 }
 
 /**
- * Fall/spring terms with their loads in credits toward the JD (master's courses the law school
- * doesn't accept are excluded). Summer never counts toward residency.
+ * Fall/spring terms with their credit loads. Full-time status counts every credit the student is
+ * enrolled in, including graduate (master's) courses that don't apply toward the JD.
+ * Summer never counts toward residency.
  */
-export function regularTermLoads(es: Enrollment[], profile: Profile): TermLoad[] {
-  const jd = jdEnrollments(es, profile).filter((e) => !e.transferredIn);
-  const terms = [...new Set(jd.map((e) => e.term))].filter(isRegularTerm).sort();
+export function regularTermLoads(es: Enrollment[]): TermLoad[] {
+  const enrolled = es.filter((e) => !e.transferredIn);
+  const terms = [...new Set(enrolled.map((e) => e.term))].filter(isRegularTerm).sort();
   return terms.map((term) => {
-    const inTerm = jd.filter((e) => e.term === term);
+    const inTerm = enrolled.filter((e) => e.term === term);
     const registered = sumCredits(inTerm);
     const earned = sumCredits(inTerm.filter(earnsCredit));
     const layer = Math.max(...inTerm.map(layerOf)) as Layer;
@@ -33,7 +33,7 @@ export function regularTermLoads(es: Enrollment[], profile: Profile): TermLoad[]
 
 export function evaluateResidency(es: Enrollment[], profile: Profile): ReqResult {
   const need = profile.transfer ? RESIDENCY.transferSemesters : RESIDENCY.semesters;
-  const loads = regularTermLoads(es, profile);
+  const loads = regularTermLoads(es);
   const have: [number, number, number] = [0, 1, 2].map(
     (l) => loads.filter((t) => t.fullTime && t.layer <= l).length,
   ) as [number, number, number];
@@ -76,11 +76,11 @@ export function evaluateResidency(es: Enrollment[], profile: Profile): ReqResult
   }
 
   let status: Status = have[0] >= need ? 'met' : have[1] >= need ? 'in-progress' : have[2] >= need ? 'planned' : 'unmet';
-  let detail = `${need} semesters of full-time enrollment (12+ credits registered, 10+ completed), including at least 4 at the Concord campus. Summer terms don't count toward residency.`;
+  let detail = `${need} semesters of full-time enrollment (12+ credits registered, 10+ completed — graduate courses count toward full-time status even if they don't apply to the JD), including at least 4 at the Concord campus. Summer terms don't count toward residency.`;
   if (profile.transfer) detail += ' Transfer students need 4.';
   if (profile.dual) {
     status = 'info';
-    detail = 'Dual degree students meet residency by following their approved curriculum map. Full-time law semesters so far are shown for reference.';
+    detail = 'Dual degree students meet residency by following their approved curriculum map. Full-time semesters (law and graduate credits together) are shown for reference.';
   }
 
   return {

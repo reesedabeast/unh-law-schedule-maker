@@ -11,6 +11,9 @@ const STATUS_TEXT: Record<Status, string> = {
   manual: 'Confirm',
   'manual-met': 'Confirmed',
   info: 'Info',
+  'cap-under': 'Under cap',
+  'cap-hit': 'Cap hit',
+  'cap-exceeded': 'Cap exceeded',
 };
 
 export function StatusBadge({ status }: { status: Status }) {

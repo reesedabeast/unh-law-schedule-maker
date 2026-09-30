@@ -21,11 +21,14 @@ proposed course plan against JD graduation requirements and explains what's met,
   hard cap on credits per semester; more than 17 credits toward the JD is flagged as an overload (fees apply).
 - **Credits toward the JD**: law courses, law transfer credit, and only the master's courses the law school
   accepts. For the MBA that's the enumerated list (ADMN 840, 912, 919, 930, 950, 960, 970), up to 12 credits.
-  Other ADMN courses never count toward JD credits, GPA, residency or semester load.
+  Other ADMN courses never count toward JD credits, JD GPA or the 17-credit overload threshold. Full-time residency
+  status, however, counts every enrolled credit, graduate courses included.
+- **Credit limits**: the caps (below C- 9, clinical 18, residency 15, independent study 8, non-law 12,
+  non-regularly-scheduled 21) aren't graduation requirements. They show as *Under cap*, *Cap hit* or
+  *Cap exceeded*, and credits beyond a cap simply don't count toward the 85.
 - **Progress**: evaluates the requirements for
-  - Residential JD (Rule I-A) and Daniel Webster Scholar Honors JD (Rule I-D): 85 credits, GPA, below-C- cap, required
-    courses, Upper-Level Writing (2) and Experiential Learning (6) from separate courses, credit caps (clinical 18,
-    residency 15, independent study 8, non-law 12, non-regularly-scheduled 21), and residency semesters;
+  - Residential JD (Rule I-A) and Daniel Webster Scholar Honors JD (Rule I-D): 85 credits, GPA, required courses,
+    Upper-Level Writing (2) and Experiential Learning (6) from separate courses, and residency semesters;
   - all JD concentrations (Rule XVIII), with advisor-approval inputs;
   - JD/MBA, JD/MSW and JD/MPP dual degrees (Rule XIX and the graduate catalog pages).
   Progress is layered as completed → in progress → planned.

@@ -75,7 +75,7 @@ function Req({ r, depth = 0 }: { r: ReqResult; depth?: number }) {
   if (depth === 1 && hasKids) {
     return (
       <div className="req">
-        <details open={r.status !== 'met'}>
+        <details open={r.status !== 'met' && r.status !== 'cap-under'}>
           <summary style={{ listStyle: 'none' }}>{head}</summary>
           {body}
         </details>

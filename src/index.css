@@ -277,6 +277,15 @@ label.check input {
   background: var(--warn-soft);
   color: var(--warn);
 }
+.badge.cap-hit {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.badge.cap-exceeded {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.badge.cap-under,
 .badge.info,
 .badge.neutral {
   background: var(--surface-2);

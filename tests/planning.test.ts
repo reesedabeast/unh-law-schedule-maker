@@ -96,7 +96,8 @@ describe('credit rules from advising feedback', () => {
     // JD GPA ignores ADMN 926: (3*4 + 3*3) / 6 = 3.5
     expect(ev.gpa).toBeCloseTo(3.5);
     expect(ev.tally.notAccepted.map((e) => e.code)).toEqual(['ADMN 926']);
-    expect(regularTermLoads(es, mba)[0].registered).toBe(6);
+    // Full-time residency counts every enrolled credit, including non-accepted graduate courses.
+    expect(regularTermLoads(es)[0].registered).toBe(9);
   });
 });
 
@@ -120,5 +121,44 @@ describe('cap bookkeeping', () => {
     expect(t.nonRegular).toBe(27); // 15 residency + 12 accepted non-law
     expect(t.excess.nonRegular).toBe(6);
     expect(t.countable).toBe(33 - 12);
+  });
+});
+
+describe('caps and residency loads (round 2)', () => {
+  it('reports caps as under / hit / exceeded without affecting program status', async () => {
+    const { evaluateProgram } = await import('../src/engine/evaluate');
+    const { firstYear, upperYears } = await import('./helpers');
+    const find = (r: import('../src/engine/types').ReqResult, id: string): import('../src/engine/types').ReqResult | undefined =>
+      r.id === id ? r : r.children?.map((c) => find(c, id)).find(Boolean);
+    const base = [...firstYear(), ...upperYears()];
+    // Exactly 15 residency credits: cap hit, program still met.
+    const hit = evaluateProgram([...base, en('LSK 934', '202650', 11, 'S'), en('LSK 907', '202650', 4, 'S')], profile());
+    expect(find(hit, 'cap-residency')!.status).toBe('cap-hit');
+    expect(find(hit, 'cap-is')!.status).toBe('cap-under');
+    expect(hit.status).toBe('met');
+  });
+
+  it('treats more than 9 below-C- credits as a cap: the extra credits just do not count', async () => {
+    const { tallyCredits, evaluateProgram } = await import('../src/engine/evaluate');
+    const es = [en('LGP 909', '202410', 4, 'D'), en('LGP 920', '202410', 4, 'D+'), en('LGP 960', '202410', 3, 'D-'), en('LSK 921', '202410', 3, 'A')];
+    const t = tallyCredits(es, profile());
+    expect(t.belowCMinus).toBe(11);
+    expect(t.excess.belowCMinus).toBe(2);
+    expect(t.countable).toBe(12);
+    const r = evaluateProgram(es, profile());
+    const cap = r.children!.find((c) => c.id === 'caps')!.children!.find((c) => c.id === 'cap-below-c-minus')!;
+    expect(cap.status).toBe('cap-exceeded');
+  });
+
+  it('counts non-accepted graduate credits toward full-time residency', () => {
+    // 9 law + 3 non-accepted ADMN = 12 enrolled credits: full-time, no part-time warning.
+    const es = [
+      en('LGP 921', '202610', 3, undefined, 'planned'),
+      en('LGP 951', '202610', 3, undefined, 'planned'),
+      en('LGP 924', '202610', 3, undefined, 'planned'),
+      en('ADMN 926', '202610', 3, undefined, 'planned'),
+    ];
+    expect(checkPlan(es, profile()).some((i) => i.message.includes('full-time'))).toBe(false);
+    expect(checkPlan(es.slice(0, 3), profile()).some((i) => i.message.includes('full-time'))).toBe(true);
   });
 });
