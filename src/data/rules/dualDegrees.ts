@@ -122,3 +122,18 @@ export const DUAL_DEGREES: Record<DualId, DualDef> = {
     ],
   },
 };
+
+export interface MasterTag {
+  kind: 'required' | 'jd';
+  label: string;
+}
+
+/** How a graduate course figures in a dual degree: required group(s) and whether it can count toward the JD. */
+export function masterTags(code: string, dual: DualId): MasterTag[] {
+  const def = DUAL_DEGREES[dual];
+  const tags: MasterTag[] = def.groups.filter((g) => g.codes.includes(code)).map((g) => ({ kind: 'required' as const, label: g.label }));
+  if (def.jdTransferable?.includes(code)) tags.push({ kind: 'jd', label: `Can count toward the JD (up to ${def.maxToJd} credits)` });
+  else if (!def.jdTransferable && code.startsWith(`${def.subject} `))
+    tags.push({ kind: 'jd', label: `May count toward the JD per the ${dual.toUpperCase()} protocol — confirm with Academic Advising` });
+  return tags;
+}

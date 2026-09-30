@@ -1,3 +1,4 @@
+import { isLawCourse } from '../data/rules/courseCategories';
 import { findSection, type Section } from '../engine/catalog';
 import { meetingDays, parseMeetingTime, sectionsConflict } from '../engine/planChecks';
 import type { Enrollment } from '../engine/types';
@@ -47,7 +48,8 @@ export function WeekView({ enrollments }: { enrollments: Enrollment[] }) {
       return meetingDays(m.days).map((d) => ({ day: d, start: t[0], end: t[1], label: e.code, room: m.room, conflict, half: s.partOfTerm }));
     }),
   );
-  const unscheduled = enrollments.filter((e) => !findSection(e));
+  // Master's courses are asynchronous, so they never need a meeting time.
+  const unscheduled = enrollments.filter((e) => !findSection(e) && isLawCourse(e.code));
   if (!blocks.length)
     return <p className="small muted">Choose sections for your courses to see a weekly calendar.</p>;
 

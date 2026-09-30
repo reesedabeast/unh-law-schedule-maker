@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { CONCENTRATIONS } from '../data/rules/concentrations';
 import { categoriesOf, CATEGORY_LABELS, LAW_SUBJECTS } from '../data/rules/courseCategories';
+import { DUAL_DEGREES, masterTags } from '../data/rules/dualDegrees';
 import { COURSES, TERMS, courseHasAttr, sectionsFor, type Course } from '../engine/catalog';
-import { eligibleSections, sectionEligibility } from '../engine/planChecks';
+import { sectionEligibility } from '../engine/planChecks';
 import { nextTerm, termName } from '../engine/terms';
+import type { DualId } from '../engine/types';
 import { useStore, visibleTerms } from '../store';
-import { currentTerm, searchCourses, sectionLabel, useCourseSearch } from './helpers';
+import { addPatch, currentTerm, searchCourses, sectionLabel, useCourseSearch } from './helpers';
 
 const SUBJECT_NAMES: Record<string, string> = {
   LAW: 'Law (undergraduate)',
@@ -37,14 +39,8 @@ function CourseCard({ c, filterTerm }: { c: Course; filterTerm: string }) {
   const cats = categoriesOf(c.code);
   const offered = c.offerings.map((o) => termName(o.term));
 
-  const add = () => {
-    const el = eligibleSections(c.code, target, profile);
-    addCourse(c.code, target, {
-      status: target === currentTerm() ? 'in-progress' : 'planned',
-      credits: el[0]?.creditsMin || c.creditsMin || 3,
-      section: el.length === 1 ? el[0].section : undefined,
-    });
-  };
+  const add = () => addCourse(c.code, target, addPatch(c.code, target, profile));
+  const tags = c.program !== 'law' ? masterTags(c.code, c.program as DualId) : [];
 
   return (
     <article className="course-card">
@@ -60,6 +56,15 @@ function CourseCard({ c, filterTerm }: { c: Course; filterTerm: string }) {
         </div>
       </div>
       {cats.length > 0 && <div className="small muted">{cats.map((k) => CATEGORY_LABELS[k]).join(' · ')}</div>}
+      {tags.length > 0 && (
+        <div className="row small" style={{ gap: '0.3rem' }}>
+          {tags.map((t) => (
+            <span key={t.label} className={`badge ${t.kind === 'required' ? 'in-progress' : 'neutral'}`}>
+              {t.label}
+            </span>
+          ))}
+        </div>
+      )}
       {c.description && (
         <p>
           {expanded || c.description.length < 260 ? c.description : `${c.description.slice(0, 260)}… `}
@@ -74,7 +79,11 @@ function CourseCard({ c, filterTerm }: { c: Course; filterTerm: string }) {
       {c.equivalents.length > 0 && <p className="small"><strong>Equivalent:</strong> {c.equivalents.join(', ')}</p>}
       <p className="small muted">
         {c.gradeMode && `${c.gradeMode}. `}
-        {offered.length ? `Offered: ${offered.slice(-6).join(', ')}` : 'No offerings on record since Fall 2022.'}
+        {c.program !== 'law'
+          ? `${DUAL_DEGREES[c.program as DualId].name.split(' (')[0]} course · taken online/asynchronously.`
+          : offered.length
+            ? `Offered: ${offered.slice(-6).join(', ')}`
+            : 'No offerings on record since Fall 2022.'}
         {!c.inCatalog && ' Not in the current catalog.'}
       </p>
       {sections.length > 0 && (
@@ -129,11 +138,19 @@ export function CatalogPage() {
   const [attr, setAttr] = useState('');
   const [term, setTerm] = useState(TERMS[TERMS.length - 1]?.term ?? '');
   const [conc, setConc] = useState('');
+  const [school, setSchool] = useState<'law' | DualId>('law');
+  const [masterReq, setMasterReq] = useState('');
   const [limit, setLimit] = useState(40);
+  const isLaw = school === 'law';
 
   const results = useMemo(() => {
     let list = q.trim() ? searchCourses(fuse, q, 200) : [...COURSES];
-    list = list.filter((c) => LAW_SUBJECTS.includes(c.code.split(' ')[0]));
+    list = list.filter((c) => c.program === school);
+    if (school !== 'law') {
+      if (masterReq === 'required') list = list.filter((c) => masterTags(c.code, school).some((t) => t.kind === 'required'));
+      if (masterReq === 'jd') list = list.filter((c) => masterTags(c.code, school).some((t) => t.kind === 'jd'));
+      return list;
+    }
     if (subject) list = list.filter((c) => c.code.startsWith(`${subject} `));
     if (term) list = list.filter((c) => c.offerings.some((o) => o.term === term));
     if (attr) list = list.filter((c) => courseHasAttr(c, attr as 'LWI', term || undefined));
@@ -143,7 +160,7 @@ export function CatalogPage() {
       list = list.filter((c) => codes.has(c.code));
     }
     return list;
-  }, [fuse, q, subject, attr, term, conc]);
+  }, [fuse, q, subject, attr, term, conc, school, masterReq]);
 
   return (
     <div className="stack">
@@ -151,9 +168,32 @@ export function CatalogPage() {
         <h2>Course catalog</h2>
         <div className="filters">
           <label className="field">
-            <span>Search</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. evidence, LIP 954, patent" />
+            <span>School</span>
+            <select value={school} onChange={(e) => setSchool(e.target.value as 'law' | DualId)}>
+              <option value="law">Law (JD)</option>
+              {Object.values(DUAL_DEGREES).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.id.toUpperCase()} — {d.subject} courses
+                </option>
+              ))}
+            </select>
           </label>
+          <label className="field">
+            <span>Search</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={isLaw ? 'e.g. evidence, LIP 954, patent' : 'e.g. finance, ADMN 930'} />
+          </label>
+          {!isLaw && (
+            <label className="field">
+              <span>Dual degree role</span>
+              <select value={masterReq} onChange={(e) => setMasterReq(e.target.value)}>
+                <option value="">All graduate courses</option>
+                <option value="required">Required for the {school.toUpperCase()}</option>
+                <option value="jd">Can count toward the JD</option>
+              </select>
+            </label>
+          )}
+          {isLaw && (
+          <>
           <label className="field">
             <span>Offered in</span>
             <select value={term} onChange={(e) => setTerm(e.target.value)}>
@@ -196,9 +236,14 @@ export function CatalogPage() {
               ))}
             </select>
           </label>
+          </>
+          )}
         </div>
         <p className="small muted" style={{ margin: 0 }}>
-          {results.length} course{results.length === 1 ? '' : 's'}. Designations (ULW, EL, Bar) are set per section and can change by term.
+          {results.length} course{results.length === 1 ? '' : 's'}.{' '}
+          {isLaw
+            ? 'Designations (ULW, EL, Bar) are set per section and can change by term.'
+            : 'Graduate courses from the UNH graduate catalog. Dual degree students take these online/asynchronously, so there are no schedule times to check.'}
         </p>
       </section>
       <section className="card">

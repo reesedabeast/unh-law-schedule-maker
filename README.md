@@ -7,6 +7,12 @@ proposed course plan against JD graduation requirements and explains what's met,
 
 ## What it does
 
+- **Start**: pick your first semester and program. The standard 1L year is filled in automatically (Fundamentals
+  of Law Practice by default, with one-click swap to Fundamentals of IP). The defaults are fully editable and move
+  with the start term until you edit them.
+- **Suggested courses pane**: lists every requirement still missing (required courses, ULW, EL, concentration and
+  dual degree courses). Each shows whether it's offered and open to you in the chosen semester and whether its
+  prerequisites are met, and one click adds it.
 - **Semesters**: enter completed courses by hand, or import a UNH transcript PDF to pre-fill them. The PDF is read in
   the browser, only course rows are kept, and everything stays editable. Add planned courses to future semesters, pick
   sections, and see a weekly calendar.
@@ -21,7 +27,9 @@ proposed course plan against JD graduation requirements and explains what's met,
   - JD/MBA, JD/MSW and JD/MPP dual degrees (Rule XIX and the graduate catalog pages).
   Progress is layered as completed → in progress → planned.
 - **Course catalog**: search every law course, filter by term offered, ULW/EL/Bar designation, subject, or
-  concentration, and see sections, seats and who can enroll.
+  concentration, and see sections, seats and who can enroll. It also covers the graduate ADMN (MBA), PPOL (MPP)
+  and SW (MSW) courses, tagged with their dual degree role. They are taken asynchronously, so there are no
+  time or section checks for them.
 
 Data is saved in the browser's localStorage. Students can also save or open a plan file (JSON).
 
@@ -42,7 +50,8 @@ npm run scrape
 
 This pulls every law section since Fall 2022 from the public schedule API behind courses.unh.edu/timeroom
 (`wapi.unh.edu/dhub/api/courses/all/{term}?campus=L`) and the course descriptions from
-catalog.unh.edu/law/course-descriptions. It writes the results to `src/data/generated/`. Term codes: `YYYY10` = Fall YYYY,
+catalog.unh.edu/law/course-descriptions, plus the 800/900-level ADMN, PPOL and SW courses from
+catalog.unh.edu/graduate/course-descriptions. It writes the results to `src/data/generated/`. Term codes: `YYYY10` = Fall YYYY,
 `YYYY50` = Spring YYYY+1, `YYYY70` = Summer YYYY+1.
 
 ULW / EL / Bar designations come from section attributes (`LWI`, `LEXP`, `LBAR`). They are attached to sections, so

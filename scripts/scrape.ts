@@ -14,6 +14,9 @@ const OUT = join(import.meta.dirname, '..', 'src', 'data', 'generated');
 const API = 'https://wapi.unh.edu/dhub/api/courses';
 const CATALOG = 'https://catalog.unh.edu/law/course-descriptions';
 const SUBJECTS = ['law', 'lbc', 'lbs', 'lcl', 'lcr', 'ldws', 'lgp', 'lip', 'lpi', 'lrs', 'lsk', 'lsw'];
+/** Graduate subjects for the dual degree programs (taken asynchronously; no section data needed). */
+const GRAD_CATALOG = 'https://catalog.unh.edu/graduate/course-descriptions';
+const GRAD_SUBJECTS: Record<string, string> = { admn: 'mba', sw: 'msw', ppol: 'mpp' };
 const FIRST_YEAR = 2021;
 const UA = { 'User-Agent': 'Mozilla/5.0 (UNH Law ScheduleMaker data refresh)' };
 
@@ -152,7 +155,13 @@ async function main() {
   for (const subj of SUBJECTS) {
     const rows = parseCatalogPage(await get(`${CATALOG}/${subj}/`));
     console.log(`catalog ${subj}: ${rows.length} courses`);
-    catalog.push(...rows.filter((r) => r.code));
+    catalog.push(...rows.filter((r) => r.code).map((r) => ({ ...r, program: 'law' })));
+  }
+  for (const [subj, program] of Object.entries(GRAD_SUBJECTS)) {
+    // Graduate-level (800+) courses only.
+    const rows = parseCatalogPage(await get(`${GRAD_CATALOG}/${subj}/`)).filter((r) => /\s[89]\d\d/.test(r.code));
+    console.log(`catalog ${subj}: ${rows.length} courses`);
+    catalog.push(...rows.map((r) => ({ ...r, program })));
   }
 
   // Merge into one course index keyed by code.
@@ -171,6 +180,7 @@ async function main() {
       equivalents: [],
       repeatRule: '',
       gradeMode: s.gradeMode,
+      program: 'law',
       inCatalog: false,
       offerings: [],
     });

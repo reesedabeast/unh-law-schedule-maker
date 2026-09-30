@@ -4,16 +4,10 @@ import { normCode } from '../engine/catalog';
 import { DUAL_DEGREES } from '../data/rules/dualDegrees';
 import { PROGRAMS } from '../data/rules/programs';
 import { SOURCES } from '../data/rules/sources';
-import { termCode, termName } from '../engine/terms';
+import { termName } from '../engine/terms';
 import type { DualId, ProgramId } from '../engine/types';
 import { useStore } from '../store';
-
-const startOptions = () => {
-  const y = new Date().getFullYear();
-  const out: string[] = [];
-  for (let yr = y - 6; yr <= y + 1; yr++) out.push(termCode('Fall', yr), termCode('Spring', yr + 1));
-  return out.sort();
-};
+import { startTermOptions } from './helpers';
 
 /** Comma-separated course codes, committed on blur so typing isn't rewritten mid-entry. */
 function CodesInput({ codes, onCommit }: { codes: string[]; onCommit: (codes: string[]) => void }) {
@@ -64,7 +58,7 @@ export function ProfilePage() {
           <label className="field">
             <span>First JD semester</span>
             <select value={profile.startTerm} onChange={(e) => setProfile({ startTerm: e.target.value })}>
-              {startOptions().map((t) => (
+              {startTermOptions().map((t) => (
                 <option key={t} value={t}>
                   {termName(t)}
                 </option>

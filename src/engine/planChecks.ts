@@ -124,9 +124,11 @@ export function checkPlan(es: Enrollment[], profile: Profile): Issue[] {
         if (!lawrDone) issues.push({ severity: 'warning', term, enrollmentId: e.id, message: `${label}: Upper-Level Writing courses require completing LSK 921 and LSK 922 first.` });
       }
 
-      // Offered?
-      const scheduled = SECTIONS_BY_TERM[term];
-      if (scheduled) {
+      // Offered? Master's courses are taken asynchronously/online and aren't in the law schedule.
+      const scheduled = isLawCourse(course.code) ? SECTIONS_BY_TERM[term] : undefined;
+      if (!isLawCourse(course.code)) {
+        // no offering/section/time checks
+      } else if (scheduled) {
         const secs = scheduled.filter((s) => s.code === course.code);
         if (!secs.length) {
           issues.push({ severity: 'error', term, enrollmentId: e.id, message: `${label}: not offered in ${termName(term)}.` });

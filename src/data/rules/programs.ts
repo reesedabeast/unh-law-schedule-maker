@@ -129,6 +129,24 @@ export const PROGRAMS: Record<ProgramId, ProgramDef> = {
   },
 };
 
+/**
+ * Default 1L schedule from the catalog's sample degree plan (same for Residential and DWS).
+ * The perspectives slot defaults to Fundamentals of Law Practice; students can swap to LIP 944.
+ */
+export const FIRST_YEAR_PLAN = {
+  fall: ['LGP 909', 'LGP 920', 'LSK 921', 'LGP 900', 'LGP 960'],
+  spring: ['LGP 918', 'LCR 905', 'LPI 912', 'LSK 922', 'LGP 952'],
+};
+
+/** Either/or requirement options, derived from the program definitions ("LPI 912" -> ["LIP 944"]). */
+export function alternativesFor(code: string): string[] {
+  const out = new Set<string>();
+  for (const p of Object.values(PROGRAMS))
+    for (const g of p.groups)
+      for (const c of g.courses) if (c.codes.length > 1 && c.codes.includes(code)) c.codes.filter((x) => x !== code).forEach((x) => out.add(x));
+  return [...out];
+}
+
 /** Required 1L courses that must be done before Upper-Level Writing courses. */
 export const ULW_PREREQS = ['LSK 921', 'LSK 922'];
 

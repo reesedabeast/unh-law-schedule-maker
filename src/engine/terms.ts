@@ -72,3 +72,17 @@ export function regularTermsFrom(start: string, count: number): string[] {
   }
   return out;
 }
+
+/** Term containing a date (default today). August starts fall; June–July is summer. */
+export function currentTerm(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  if (m >= 8) return `${y}10`;
+  if (m <= 5) return `${y - 1}50`;
+  return `${y - 1}70`;
+}
+
+/** Past terms default to completed, the current term to in progress, future terms to planned. */
+export function defaultStatus(term: string, now = currentTerm()): 'completed' | 'in-progress' | 'planned' {
+  return term < now ? 'completed' : term === now ? 'in-progress' : 'planned';
+}

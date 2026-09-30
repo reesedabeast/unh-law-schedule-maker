@@ -417,6 +417,7 @@ export function evaluateDual(def: DualDef, es: Enrollment[], profile: Profile): 
       status: statusFor(have, need),
       progress: { need, have, unit: 'courses' },
       detail: missing.length && have[2] < need ? `Not yet on your record or plan: ${missing.join(', ')}` : undefined,
+      suggestions: have[2] < need ? missing : undefined,
     };
   });
 

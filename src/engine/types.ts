@@ -18,6 +18,8 @@ export interface Enrollment {
   el?: boolean;
   /** Credit transferred from another law school. */
   transferredIn?: boolean;
+  /** Filled in from the default 1L schedule and not yet edited; follows start-term changes. */
+  auto?: boolean;
 }
 
 export type ProgramId = 'residential' | 'dws';

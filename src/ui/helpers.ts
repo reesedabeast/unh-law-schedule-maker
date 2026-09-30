@@ -1,21 +1,19 @@
 import Fuse from 'fuse.js';
 import { useMemo } from 'react';
-import { COURSES, type Course, type Section } from '../engine/catalog';
-import type { EnrollmentStatus } from '../engine/types';
+import { COURSES, getCourse, type Course, type Section } from '../engine/catalog';
+import { eligibleSections } from '../engine/planChecks';
+import { currentTerm, defaultStatus, termCode } from '../engine/terms';
+import type { Enrollment, Profile } from '../engine/types';
 
-/** Term containing today's date. */
-export function currentTerm(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  if (m >= 8) return `${y}10`;
-  if (m <= 5) return `${y - 1}50`;
-  return `${y - 1}70`;
+export { currentTerm, defaultStatus };
+
+/** Fall/spring start terms from six years ago through next year. */
+export function startTermOptions(): string[] {
+  const y = Number(currentTerm().slice(0, 4));
+  const out: string[] = [];
+  for (let yr = y - 6; yr <= y + 1; yr++) out.push(termCode('Fall', yr), termCode('Spring', yr + 1));
+  return out.sort();
 }
-
-export const defaultStatus = (term: string): EnrollmentStatus => {
-  const now = currentTerm();
-  return term < now ? 'completed' : term === now ? 'in-progress' : 'planned';
-};
 
 export const sectionLabel = (s: Section) => {
   const when = s.meetings.map((m) => `${m.days} ${m.time}`.trim()).filter(Boolean).join('; ') || 'No set meeting time';
@@ -50,3 +48,18 @@ export function searchCourses(fuse: Fuse<Course>, q: string, limit = 12): Course
   return [...new Map([...exact, ...fuzzy].map((c) => [c.code, c])).values()].slice(0, limit);
 }
 
+
+// ---------- adding courses ----------
+
+
+/**
+ * Defaults for a course added to a term: status from the calendar, credits from the section
+ * (or catalog), and the section pre-selected when only one is open to the student.
+ */
+export function addPatch(code: string, term: string, profile: Profile): Partial<Enrollment> {
+  const patch: Partial<Enrollment> = { status: defaultStatus(term) };
+  const eligible = eligibleSections(code, term, profile);
+  patch.credits = eligible[0]?.creditsMin || getCourse(code)?.creditsMin || 3;
+  if (eligible.length === 1 && patch.status !== 'completed') patch.section = eligible[0].section;
+  return patch;
+}

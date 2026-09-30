@@ -22,6 +22,8 @@ export interface Course {
   equivalents: string[];
   repeatRule: string;
   gradeMode: string;
+  /** 'law', or the dual degree program a graduate course belongs to ('mba' | 'msw' | 'mpp'). */
+  program: string;
   inCatalog: boolean;
   offerings: Offering[];
 }
