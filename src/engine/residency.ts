@@ -1,5 +1,6 @@
 import { RESIDENCY } from '../data/rules/programs';
 import { earnsCredit, layerOf, sumCredits } from './gpa';
+import { jdEnrollments } from './jdCredit';
 import { isRegularTerm, nextTerm, termEndMonth, termName, termStartMonth } from './terms';
 import type { Enrollment, Layer, Profile, ReqResult, Status } from './types';
 
@@ -12,11 +13,15 @@ export interface TermLoad {
   fullTime: boolean;
 }
 
-/** Fall/spring terms with their credit loads. Summer never counts toward residency. */
-export function regularTermLoads(es: Enrollment[]): TermLoad[] {
-  const terms = [...new Set(es.map((e) => e.term))].filter(isRegularTerm).sort();
+/**
+ * Fall/spring terms with their loads in credits toward the JD (master's courses the law school
+ * doesn't accept are excluded). Summer never counts toward residency.
+ */
+export function regularTermLoads(es: Enrollment[], profile: Profile): TermLoad[] {
+  const jd = jdEnrollments(es, profile).filter((e) => !e.transferredIn);
+  const terms = [...new Set(jd.map((e) => e.term))].filter(isRegularTerm).sort();
   return terms.map((term) => {
-    const inTerm = es.filter((e) => e.term === term && !e.transferredIn);
+    const inTerm = jd.filter((e) => e.term === term);
     const registered = sumCredits(inTerm);
     const earned = sumCredits(inTerm.filter(earnsCredit));
     const layer = Math.max(...inTerm.map(layerOf)) as Layer;
@@ -28,7 +33,7 @@ export function regularTermLoads(es: Enrollment[]): TermLoad[] {
 
 export function evaluateResidency(es: Enrollment[], profile: Profile): ReqResult {
   const need = profile.transfer ? RESIDENCY.transferSemesters : RESIDENCY.semesters;
-  const loads = regularTermLoads(es);
+  const loads = regularTermLoads(es, profile);
   const have: [number, number, number] = [0, 1, 2].map(
     (l) => loads.filter((t) => t.fullTime && t.layer <= l).length,
   ) as [number, number, number];

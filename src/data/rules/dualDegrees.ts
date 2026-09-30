@@ -37,8 +37,6 @@ export interface DualDef {
 
 export const DUAL_RULES = {
   minGpaAfter1L: 3.0,
-  maxLawCreditsWhileInMaster: 12,
-  maxCombinedCredits: 17,
   applyBy: 'Apply to the MBA, MSW or MPP program before the end of your second JD semester.',
 };
 

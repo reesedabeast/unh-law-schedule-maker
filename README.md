@@ -17,8 +17,11 @@ proposed course plan against JD graduation requirements and explains what's met,
   the browser, only course rows are kept, and everything stays editable. Add planned courses to future semesters, pick
   sections, and see a weekly calendar.
 - **Plan checks**: prerequisites (including "may be taken concurrently"), sections restricted to other programs
-  (e.g. Hybrid JD), meeting-time conflicts, courses not offered that term, full-time load, and dual degree load
-  limits (12 law / 17 combined).
+  (e.g. Hybrid JD), meeting-time conflicts, courses not offered that term, and full-time residency load. There's no
+  hard cap on credits per semester; more than 17 credits toward the JD is flagged as an overload (fees apply).
+- **Credits toward the JD**: law courses, law transfer credit, and only the master's courses the law school
+  accepts. For the MBA that's the enumerated list (ADMN 840, 912, 919, 930, 950, 960, 970), up to 12 credits.
+  Other ADMN courses never count toward JD credits, GPA, residency or semester load.
 - **Progress**: evaluates the requirements for
   - Residential JD (Rule I-A) and Daniel Webster Scholar Honors JD (Rule I-D): 85 credits, GPA, below-C- cap, required
     courses, Upper-Level Writing (2) and Experiential Learning (6) from separate courses, credit caps (clinical 18,
@@ -77,7 +80,10 @@ The engine (`src/engine/`) is generic, so most rule changes are data edits there
   The app counts up to 12 SW/PPOL credits and labels this "confirm with Academic Advising".
 - The JD/MBA "additional coursework (9 credits)" is interpreted as satisfiable by the 9 law credits applied to the
   MBA. This is flagged in the UI to confirm with Paul College.
-- For the 21-credit cap, clinics with a paired class are treated as having a classroom component.
+- For the 21-credit cap, clinics with a paired class are treated as having a classroom component. The 1-credit
+  Legal Residency Class (LSK 949) is a regular elective and doesn't count toward the residency or 21-credit caps.
+- Accepted dual degree master's credits are counted toward the 21-credit "non-regularly-scheduled" cap, as Rule I-A
+  lists non-law graduate work there.
 - Geographic residency (4 semesters in Concord), the preliminary bar exam, the bachelor's transcript, standing and
   financial holds are student-confirmed checkboxes.
 - Not yet supported: Hybrid JD, Advanced Standing JD, JD certificates.

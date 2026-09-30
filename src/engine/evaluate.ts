@@ -5,7 +5,8 @@ import { categoriesOf, isLawCourse } from '../data/rules/courseCategories';
 import { SOURCES } from '../data/rules/sources';
 import { allocateUlwEl, type Candidate } from './allocate';
 import { COURSES, LATEST_TERM, flagFor, getCourse, matchesAny, normCode, subjectOf } from './catalog';
-import { belowCMinusCredits, earnsCredit, gpa, gradeAtLeast, isLetterGrade, layerOf, normGrade, sumCredits, upTo } from './gpa';
+import { belowCMinusCredits, earnsCredit, formatGpa, gpa, gradeAtLeast, isLetterGrade, layerOf, normGrade, sumCredits, upTo } from './gpa';
+import { jdEnrollments, nonLawCountsTowardJd } from './jdCredit';
 import { evaluateResidency } from './residency';
 import { termName } from './terms';
 import type { Enrollment, Layer, Profile, ReqResult, Status } from './types';
@@ -41,21 +42,16 @@ export interface CreditTally {
   nonLaw: number;
   nonRegular: number;
   excess: Record<keyof typeof CAPS, number>;
-}
-
-/** Non-law credits eligible to count toward the JD for this student. */
-function nonLawCounts(e: Enrollment, dual: DualDef | null): boolean {
-  if (isLawCourse(e.code) || e.transferredIn) return false;
-  if (!dual) return true;
-  if (dual.jdTransferable) return dual.jdTransferable.includes(normCode(e.code));
-  return subjectOf(e.code) === dual.subject;
+  /** Non-law courses that never count toward the JD (e.g. MBA courses not on the accepted list). */
+  notAccepted: Enrollment[];
 }
 
 export function tallyCredits(es: Enrollment[], profile: Profile): CreditTally {
   const dual = profile.dual ? DUAL_DEGREES[profile.dual] : null;
   const earned = es.filter(earnsCredit);
   const law = earned.filter((e) => isLawCourse(e.code) || e.transferredIn);
-  const nonLawEs = earned.filter((e) => nonLawCounts(e, dual));
+  const nonLawEs = earned.filter((e) => nonLawCountsTowardJd(e, profile));
+  const notAccepted = earned.filter((e) => !isLawCourse(e.code) && !e.transferredIn && !nonLawCountsTowardJd(e, profile));
   const cat = (c: string) => sumCredits(law.filter((e) => categoriesOf(e.code).includes(c as never)));
 
   const residency = cat('residency');
@@ -73,8 +69,9 @@ export function tallyCredits(es: Enrollment[], profile: Profile): CreditTally {
   // Non-regularly-scheduled: residencies, independent study, non-law, co-curriculars
   // (clinics with a paired class are treated as having a classroom component).
   const resInClin = Math.min(resC, clinC);
-  const nonRegular = residency + independentStudy + nonLaw + coCurricular;
+  // Measured after the other caps so credits already dropped aren't counted twice.
   const nonRegC = resInClin + isC + nlC + coCurricular;
+  const nonRegular = nonRegC;
 
   const excess = {
     belowCMinus: 0,
@@ -86,7 +83,7 @@ export function tallyCredits(es: Enrollment[], profile: Profile): CreditTally {
   };
   const total = sumCredits(law) + nonLaw;
   const countable = total - excess.residency - excess.clinical - excess.independentStudy - excess.nonLaw - excess.nonRegular;
-  return { total, countable, clinical, residency, independentStudy, nonLaw, nonRegular, excess };
+  return { total, countable, clinical, residency, independentStudy, nonLaw, nonRegular, excess, notAccepted };
 }
 
 // ---------------- requirement builders ----------------
@@ -216,9 +213,12 @@ export function evaluateProgram(es: Enrollment[], profile: Profile): ReqResult {
   const countable = tallies.map((t) => t.countable) as Triple;
   const final = tallies[2];
 
-  const g = gpa(es);
+  // JD GPA and the below-C- cap cover only enrollment credited toward the JD.
+  const jdEs = jdEnrollments(es, profile);
+  const g = gpa(jdEs);
   const gpaStatus: Status = g.gpa === null ? 'info' : g.gpa >= program.minGpa - 1e-9 ? 'met' : 'unmet';
-  const below = belowCMinusCredits(es);
+  const below = belowCMinusCredits(jdEs);
+  const notAccepted = final.notAccepted;
 
   const creditChildren: ReqResult[] = [
     {
@@ -227,15 +227,20 @@ export function evaluateProgram(es: Enrollment[], profile: Profile): ReqResult {
       status: statusFor(countable, program.minCredits),
       progress: { need: program.minCredits, have: countable, unit: 'credits' },
       detail:
-        final.total !== final.countable
-          ? `${fmt(final.total - final.countable)} credits in your plan exceed a cap and don't count.`
-          : undefined,
+        [
+          final.total !== final.countable ? `${fmt(final.total - final.countable)} credits in your plan exceed a cap and don't count.` : '',
+          notAccepted.length
+            ? `Not counted toward the JD: ${notAccepted.map((e) => `${e.code} (${e.credits})`).join(', ')} — only the master's courses the law school accepts count.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
     },
     {
       id: 'gpa',
       label: `GPA of at least ${program.minGpa.toFixed(2)}`,
       status: gpaStatus,
-      detail: g.gpa === null ? 'No graded courses yet.' : `Current GPA ${g.gpa.toFixed(2)} over ${fmt(g.hours)} graded credits.`,
+      detail: g.gpa === null ? 'No graded courses yet.' : `Current JD GPA ${formatGpa(g.gpa)} over ${fmt(g.hours)} graded credits.`,
     },
     {
       id: 'below-c-minus',
@@ -454,7 +459,11 @@ export function evaluateDual(def: DualDef, es: Enrollment[], profile: Profile): 
     id: `dual-${def.id}`,
     label: def.name,
     status: rollup(children),
-    detail: `${DUAL_RULES.applyBy} While enrolled in the master's program: at most ${DUAL_RULES.maxLawCreditsWhileInMaster} law credits and ${DUAL_RULES.maxCombinedCredits} combined credits per semester.`,
+    detail:
+      `${DUAL_RULES.applyBy} ` +
+      (def.jdTransferable
+        ? `Only these ${def.subject} courses count toward the JD (up to ${def.maxToJd} credits): ${def.jdTransferable.join(', ')}.`
+        : `Up to ${def.maxToJd} ${def.subject} credits may count toward the JD.`),
     children,
     source: def.source,
     warnings,
@@ -481,6 +490,6 @@ export function evaluate(es: Enrollment[], profile: Profile): Evaluation {
       .map((c) => evaluateConcentration(c, es, profile)),
     dual: profile.dual ? evaluateDual(DUAL_DEGREES[profile.dual], es, profile) : null,
     tally: tallyCredits(es, profile),
-    gpa: gpa(es).gpa,
+    gpa: gpa(jdEnrollments(es, profile)).gpa,
   };
 }

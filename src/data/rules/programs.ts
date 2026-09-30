@@ -159,6 +159,12 @@ export const CAPS = {
   nonRegular: 21,
 } as const;
 
+/**
+ * Per-semester load: there's no hard cap, but more than 17 credits toward the JD in a semester
+ * is an overload and incurs overload fees.
+ */
+export const OVERLOAD_ABOVE = 17;
+
 export const RESIDENCY = {
   semesters: 6,
   transferSemesters: 4,

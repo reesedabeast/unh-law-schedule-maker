@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { categoriesOf, CATEGORY_LABELS } from '../data/rules/courseCategories';
 import { DUAL_DEGREES } from '../data/rules/dualDegrees';
-import { PROGRAMS, alternativesFor } from '../data/rules/programs';
+import { OVERLOAD_ABOVE, PROGRAMS, alternativesFor } from '../data/rules/programs';
+import { countsTowardJd, jdCreditsIn } from '../engine/jdCredit';
 import { SECTIONS_BY_TERM, getCourse, sectionsFor } from '../engine/catalog';
 import { ALL_GRADES, sumCredits } from '../engine/gpa';
 import { checkPlan, eligibleSections } from '../engine/planChecks';
@@ -38,6 +39,11 @@ function CourseRow({ e, profile, issues }: { e: Enrollment; profile: Profile; is
             </span>
           )}
           {course && course.program !== 'law' && <span className="badge neutral">{course.program.toUpperCase()} · online/async</span>}
+          {!countsTowardJd(e, profile) && (
+            <span className="badge warn" title="Only the master's courses the law school accepts count toward the JD">
+              Doesn't count toward JD
+            </span>
+          )}
           {e.status !== 'completed' && alternativesFor(e.code).map((alt) => (
             <button key={alt} className="link" onClick={() => swapCourse(e.id, alt)}>
               Swap for {alt} {getCourse(alt)?.title}
@@ -111,6 +117,7 @@ function TermCard({ term, enrollments, profile, issues }: { term: string; enroll
   const { addCourse, removeTerm } = useStore();
   const [week, setWeek] = useState(false);
   const credits = sumCredits(enrollments);
+  const jdCredits = jdCreditsIn(enrollments, profile);
   const now = currentTerm();
   const hasSchedule = !!SECTIONS_BY_TERM[term];
   const termIssues = issues.filter((i) => !i.enrollmentId);
@@ -124,8 +131,14 @@ function TermCard({ term, enrollments, profile, issues }: { term: string; enroll
           {termName(term)} {term === now && <span className="badge in-progress">Current</span>}
         </h3>
         <div className="row small">
-          <strong>{credits} cr</strong>
-          {isRegularTerm(term) && credits > 0 && credits < 12 && <span className="badge warn">Part-time</span>}
+          <strong title="Credits toward the JD">{jdCredits} cr</strong>
+          {credits !== jdCredits && <span className="muted" title="Includes courses that don't count toward the JD">({credits} total)</span>}
+          {isRegularTerm(term) && !profile.dual && jdCredits > 0 && jdCredits < 12 && <span className="badge warn">Part-time</span>}
+          {jdCredits > OVERLOAD_ABOVE && (
+            <span className="badge neutral" title={`More than ${OVERLOAD_ABOVE} JD credits: allowed, with overload fees`}>
+              Overload
+            </span>
+          )}
           {enrollments.length === 0 && (
             <button className="icon" onClick={() => removeTerm(term)} aria-label={`Remove ${termName(term)}`} title="Remove semester">
               ✕

@@ -102,6 +102,7 @@ export function ProgressPage() {
   const res = find('residency')!;
   const errors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
+  const notices = issues.filter((i) => i.severity === 'info');
 
   const tile = (label: string, r: ReqResult, value: string, sub: string) => (
     <div className="tile">
@@ -141,10 +142,10 @@ export function ProgressPage() {
       </div>
       <Legend />
 
-      {(errors.length > 0 || warnings.length > 0) && (
+      {(errors.length > 0 || warnings.length > 0 || notices.length > 0) && (
         <section className="card">
           <h2>Plan problems</h2>
-          {[...errors, ...warnings].map((i, k) => (
+          {[...errors, ...warnings, ...notices].map((i, k) => (
             <div key={k} className={`issue ${i.severity}`}>
               {i.term && !i.message.includes(termName(i.term)) ? `${termName(i.term)}: ` : ''}
               {i.message}

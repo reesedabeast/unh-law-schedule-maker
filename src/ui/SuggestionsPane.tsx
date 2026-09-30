@@ -3,7 +3,8 @@ import { PROGRAMS } from '../data/rules/programs';
 import { categoriesOf, isLawCourse } from '../data/rules/courseCategories';
 import { COURSES, SECTIONS_BY_TERM, equivalentsOf, getCourse, sectionsFor } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
-import { earnsCredit, sumCredits } from '../engine/gpa';
+import { earnsCredit } from '../engine/gpa';
+import { jdCreditsIn } from '../engine/jdCredit';
 import { eligibleSections } from '../engine/planChecks';
 import { evalExpr, exprToString, parsePrereq } from '../engine/prereq';
 import { currentTerm, isRegularTerm, nextTerm, termInfo, termName } from '../engine/terms';
@@ -89,8 +90,8 @@ export function SuggestionsPane() {
   const terms = visibleTerms(profile.startTerm, enrollments, extraTerms);
   const last = terms[terms.length - 1] ?? profile.startTerm;
   const options = [...new Set([...terms.filter((t) => t >= now), nextTerm(last)])].filter(isRegularTerm).sort();
-  const lawCredits = (t: string) => sumCredits(enrollments.filter((e) => e.term === t && isLawCourse(e.code)));
-  const firstOpen = options.find((t) => lawCredits(t) < 12) ?? options[options.length - 1];
+  const jdCredits = (t: string) => jdCreditsIn(enrollments.filter((e) => e.term === t), profile);
+  const firstOpen = options.find((t) => jdCredits(t) < 12) ?? options[options.length - 1];
   const [picked, setPicked] = useState<string | null>(null);
   const target = picked && options.includes(picked) ? picked : firstOpen;
 
@@ -147,7 +148,7 @@ export function SuggestionsPane() {
         <select value={target} onChange={(e) => setPicked(e.target.value)}>
           {options.map((t) => (
             <option key={t} value={t}>
-              {termName(t)} ({lawCredits(t)} law cr)
+              {termName(t)} ({jdCredits(t)} JD cr)
             </option>
           ))}
         </select>
